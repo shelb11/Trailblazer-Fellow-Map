@@ -95,7 +95,7 @@ export default function CityBubbleMap({ teachersByCity, maxCityCount, selectedCi
   );
 
   return (
-    <div style={{ position: 'relative', width: '70%', margin: '0 auto', marginTop: '-20px' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <ZoomControls onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} onReset={handleReset} />
 
       <ComposableMap

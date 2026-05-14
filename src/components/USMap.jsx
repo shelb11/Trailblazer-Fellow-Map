@@ -269,7 +269,7 @@ export default function USMap({
   const currentZoom = isDrilled ? drillTransform.k : position.zoom;
 
   return (
-    <div style={{ position: 'relative', width: '70%', margin: '0 auto', marginTop: '-20px' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       {/* Zoom controls only in national view */}
       {!isDrilled && (
         <ZoomControls onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} onReset={handleReset} />
