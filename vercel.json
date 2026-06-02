@@ -4,6 +4,7 @@
   "framework": "vite",
   "rewrites": [
     { "source": "/api/teachers", "destination": "/api/teachers" },
-    { "source": "/api/auth", "destination": "/api/auth" }
+    { "source": "/api/auth", "destination": "/api/auth" },
+    { "source": "/api/impact", "destination": "/api/impact" }
   ]
 }

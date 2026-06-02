@@ -9,6 +9,7 @@ const {
   AIRTABLE_API_KEY,
   AIRTABLE_BASE_ID,
   AIRTABLE_TABLE_NAME = 'Trailblazers | Participants',
+  AIRTABLE_DOWNLOADS_BASE_ID,
   API_PORT = '3001',
 } = process.env;
 
@@ -118,6 +119,22 @@ async function fetchSTFParticipants(baseId, headers) {
   });
 }
 
+// ── Fetch PLC Participants ──────────────────────────────────────────────────
+async function fetchPLCParticipants(baseId, headers) {
+  const filter = 'OR({Completion Status} = "Completed", {Completion Status} = "Complete", {Completion Status} = "In Progress")';
+  const records = await fetchAirtablePages(baseId, 'PLC | Participants', filter, headers);
+  return records.map(r => {
+    const f = r.fields || {};
+    return {
+      id: r.id,
+      educatorId: (f['Educators'] || [])[0] || null,
+      completionStatus: normalizeStatus(f['Completion Status']),
+      startDate: pickFirst(f['Start Date (from Cohort Name)']) || null,
+      program: 'PLC',
+    };
+  });
+}
+
 // ── Fetch Teaching for Tomorrow Participants ────────────────────────────────
 async function fetchTfTParticipants(baseId, headers) {
   const filter = 'OR({Completion Status} = "Completed", {Completion Status} = "Complete", {Completion Status} = "In Progress")';
@@ -187,7 +204,7 @@ async function fetchEducatorMap(baseId, headers, educatorIds) {
 }
 
 // ── Merge all participants, dedup by educator ID ────────────────────────────
-function mergeParticipants(stfParts, tftParts, trailblazers, educatorMap) {
+function mergeParticipants(stfParts, tftParts, plcParts, trailblazers, educatorMap) {
   const byEducator = new Map();
 
   function upsert(key, record) {
@@ -243,6 +260,24 @@ function mergeParticipants(stfParts, tftParts, trailblazers, educatorMap) {
     });
   }
 
+  for (const p of plcParts) {
+    if (!p.educatorId) continue;
+    const edu = educatorMap.get(p.educatorId);
+    if (!edu) continue;
+    upsert(p.educatorId, {
+      id: p.id,
+      educatorId: p.educatorId,
+      name: edu.name,
+      school: edu.school,
+      city: edu.city,
+      state: edu.state,
+      headshot: null,
+      completionStatus: p.completionStatus,
+      startDate: p.startDate,
+      programs: ['PLC'],
+    });
+  }
+
   for (const tb of trailblazers) {
     upsert(tb.educatorId || tb.id, tb);
   }
@@ -254,9 +289,10 @@ function mergeParticipants(stfParts, tftParts, trailblazers, educatorMap) {
 async function fetchAllRecords() {
   const headers = { Authorization: `Bearer ${AIRTABLE_API_KEY}` };
 
-  const [stfParts, tftParts, trailblazers] = await Promise.all([
+  const [stfParts, tftParts, plcParts, trailblazers] = await Promise.all([
     fetchSTFParticipants(AIRTABLE_BASE_ID, headers),
     fetchTfTParticipants(AIRTABLE_BASE_ID, headers),
+    fetchPLCParticipants(AIRTABLE_BASE_ID, headers),
     fetchTrailblazers(AIRTABLE_BASE_ID, headers),
   ]);
 
@@ -264,12 +300,13 @@ async function fetchAllRecords() {
     ...new Set([
       ...stfParts.map(p => p.educatorId).filter(Boolean),
       ...tftParts.map(p => p.educatorId).filter(Boolean),
+      ...plcParts.map(p => p.educatorId).filter(Boolean),
     ]),
   ];
 
   const educatorMap = await fetchEducatorMap(AIRTABLE_BASE_ID, headers, educatorIds);
 
-  return mergeParticipants(stfParts, tftParts, trailblazers, educatorMap);
+  return mergeParticipants(stfParts, tftParts, plcParts, trailblazers, educatorMap);
 }
 
 // ── API routes ───────────────────────────────────────────────────────────────
@@ -290,6 +327,91 @@ app.get('/api/teachers', async (_req, res) => {
   } catch (err) {
     console.error('Airtable fetch error:', err.message);
     res.status(502).json({ error: 'Failed to fetch from Airtable', detail: err.message });
+  }
+});
+
+// ── Impact Dashboard API ─────────────────────────────────────────────────────
+async function fetchImpactData() {
+  const headers = { Authorization: `Bearer ${AIRTABLE_API_KEY}` };
+
+  // Trailblazers — include state
+  const tbRecords = await fetchAirtablePages(AIRTABLE_BASE_ID, 'Trailblazers | Participants', null, headers);
+  const trailblazers = tbRecords.map(r => {
+    const f = r.fields || {};
+    const stateVal = pickFirst(f['State (from Educators)'] || '');
+    return {
+      state: toAbbr(stateVal),
+      stateName: stateVal,
+      completionStatus: normalizeStatus(f['Y1 Completion Status'] || ''),
+      createdTime: r.createdTime,
+      role: pickFirst(f['Role'] || ''),
+    };
+  });
+
+  // StF — no state field
+  const stfRecords = await fetchAirtablePages(AIRTABLE_BASE_ID, 'Spark the Future | Participants', null, headers);
+  const stf = stfRecords.map(r => ({
+    completionStatus: normalizeStatus((r.fields || {})['Completion Status'] || ''),
+    createdTime: r.createdTime,
+  }));
+
+  // TfT — no state field
+  const tftRecords = await fetchAirtablePages(AIRTABLE_BASE_ID, 'Teaching for Tomorrow | Participants', null, headers);
+  const tft = tftRecords.map(r => ({
+    completionStatus: normalizeStatus((r.fields || {})['Completion Status'] || ''),
+    createdTime: r.createdTime,
+  }));
+
+  // PLC — no state field
+  const plcRecords = await fetchAirtablePages(AIRTABLE_BASE_ID, 'PLC | Participants', null, headers);
+  const plc = plcRecords.map(r => ({
+    completionStatus: normalizeStatus((r.fields || {})['Completion Status'] || ''),
+    createdTime: r.createdTime,
+  }));
+
+  // Webinars — has state + attended + duration
+  const webRecords = await fetchAirtablePages(AIRTABLE_BASE_ID, 'National Webinar | Registrations', null, headers);
+  const webinars = webRecords.map(r => {
+    const f = r.fields || {};
+    const attendedVal = f['Attended?'];
+    const attended = typeof attendedVal === 'object' ? attendedVal?.name === 'Yes' : attendedVal === 'Yes';
+    const stateVal = f['State'];
+    const stateName = typeof stateVal === 'object' ? stateVal?.name : (stateVal || '');
+    return {
+      state: toAbbr(stateName),
+      stateName,
+      attended,
+      duration: f['Duration'] || 0,
+      createdTime: r.createdTime,
+    };
+  });
+
+  // Downloads — separate base (optional)
+  let downloads = [];
+  if (AIRTABLE_DOWNLOADS_BASE_ID) {
+    const dlRecords = await fetchAirtablePages(AIRTABLE_DOWNLOADS_BASE_ID, 'Curriculum Download Requests', null, headers);
+    downloads = dlRecords.map(r => {
+      const f = r.fields || {};
+      const stateVal = f['State'];
+      const stateName = typeof stateVal === 'object' ? stateVal?.name : (stateVal || '');
+      return {
+        state: toAbbr(stateName),
+        stateName,
+        createdTime: r.createdTime,
+      };
+    });
+  }
+
+  return { trailblazers, stf, tft, plc, webinars, downloads };
+}
+
+app.get('/api/impact', async (_req, res) => {
+  try {
+    const data = await fetchImpactData();
+    res.json(data);
+  } catch (err) {
+    console.error('Impact fetch error:', err.message);
+    res.status(502).json({ error: 'Failed to fetch impact data', detail: err.message });
   }
 });
 

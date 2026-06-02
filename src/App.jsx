@@ -4,14 +4,19 @@ import CityBubbleMap from './components/CityBubbleMap';
 import SidePanel from './components/SidePanel';
 import Legend from './components/Legend';
 import LoginGate from './components/LoginGate';
+import ImpactDashboard from './pages/ImpactDashboard';
 
 const PROGRAM_META = [
   { key: 'Trailblazers',          label: 'Trailblazers',          color: '#F5501C' },
   { key: 'Spark the Future',      label: 'Spark the Future',      color: '#0ea5e9' },
   { key: 'Teaching for Tomorrow', label: 'Teaching for Tomorrow', color: '#15803d' },
+  { key: 'PLC',                   label: 'PLC',                   color: '#7c3aed' },
 ];
 
 export default function App() {
+  // ── Page routing ──────────────────────────────────────────────────────────
+  const [page, setPage] = useState('map'); // 'map' | 'impact'
+
   // ── Data ─────────────────────────────────────────────────────────────────
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -137,6 +142,41 @@ export default function App() {
   const sectionLabel = { color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', marginBottom: 10, display: 'block' };
   const divider = { height: 1, background: 'rgba(255,255,255,0.07)', margin: '20px 0' };
 
+  if (page === 'impact') {
+    return (
+      <LoginGate>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+          <header style={{
+            background: '#111128', borderBottom: '1px solid rgba(255,255,255,0.06)',
+            flexShrink: 0, padding: '0 20px', height: 50,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{
+                width: 26, height: 26, borderRadius: 6,
+                background: 'linear-gradient(135deg,#F5501C,#F5A623)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13,
+              }}>🔥</div>
+              <span style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>aiEDU</span>
+              <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, marginLeft: 2 }}>Impact Dashboard</span>
+            </div>
+            <nav style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 3 }}>
+              {[{ key: 'map', label: '🗺 Participant Map' }, { key: 'impact', label: '⚡ Impact Data' }].map(({ key, label }) => (
+                <button key={key} onClick={() => setPage(key)} style={{
+                  padding: '5px 12px', fontSize: 11, fontWeight: 700, borderRadius: 6,
+                  border: 'none', fontFamily: 'inherit', cursor: 'pointer',
+                  background: page === key ? '#F5501C' : 'transparent',
+                  color: page === key ? '#fff' : 'rgba(255,255,255,0.4)',
+                }}>{label}</button>
+              ))}
+            </nav>
+          </header>
+          <ImpactDashboard />
+        </div>
+      </LoginGate>
+    );
+  }
+
   return (
     <LoginGate>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
@@ -156,6 +196,16 @@ export default function App() {
             <span style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>aiEDU</span>
             <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, marginLeft: 2 }}>Participant Map</span>
           </div>
+          <nav style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 3 }}>
+            {[{ key: 'map', label: '🗺 Participant Map' }, { key: 'impact', label: '⚡ Impact Data' }].map(({ key, label }) => (
+              <button key={key} onClick={() => setPage(key)} style={{
+                padding: '5px 12px', fontSize: 11, fontWeight: 700, borderRadius: 6,
+                border: 'none', fontFamily: 'inherit', cursor: 'pointer',
+                background: page === key ? '#F5501C' : 'transparent',
+                color: page === key ? '#fff' : 'rgba(255,255,255,0.4)',
+              }}>{label}</button>
+            ))}
+          </nav>
           <button
             onClick={fetchTeachers}
             disabled={loading}
