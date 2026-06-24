@@ -13,7 +13,48 @@ const PROGRAM_META = [
   { key: 'PLC',                   label: 'PLC',                   color: '#7c3aed' },
 ];
 
+const REDIRECT_URL = 'https://trailblazer-fellowship-data-dashboa.vercel.app/';
+
+function RedirectBanner({ onDismiss }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.6)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '1rem',
+    }}>
+      <div style={{
+        background: '#fff', borderRadius: '12px', padding: '2rem',
+        maxWidth: '480px', width: '100%', textAlign: 'center',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+        fontFamily: 'Poppins, sans-serif',
+      }}>
+        <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🚀</div>
+        <h2 style={{ margin: '0 0 0.75rem', fontSize: '1.25rem', color: '#111' }}>
+          A newer version is available!
+        </h2>
+        <p style={{ margin: '0 0 1.5rem', color: '#555', fontSize: '0.95rem', lineHeight: 1.5 }}>
+          Visit the updated app for the most current data and features.
+        </p>
+        <a
+          href={REDIRECT_URL}
+          style={{
+            display: 'inline-block', background: '#F5501C', color: '#fff',
+            padding: '0.6rem 1.4rem', borderRadius: '8px', textDecoration: 'none',
+            fontWeight: 600, fontSize: '0.95rem',
+          }}
+        >
+          Go to updated app
+        </a>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
+  // ── Redirect banner ───────────────────────────────────────────────────────
+  const [showBanner, setShowBanner] = useState(true);
+
   // ── Page routing ──────────────────────────────────────────────────────────
   const [page, setPage] = useState('map'); // 'map' | 'impact'
 
@@ -178,7 +219,9 @@ export default function App() {
   }
 
   return (
-    <LoginGate>
+    <>
+      {showBanner && <RedirectBanner onDismiss={() => setShowBanner(false)} />}
+      <LoginGate>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
 
         {/* ── Header ── */}
@@ -474,5 +517,6 @@ export default function App() {
         </div>
       </div>
     </LoginGate>
+    </>
   );
 }
